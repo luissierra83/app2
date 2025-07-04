@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:esc_pos_utils/esc_pos_utils.dart';
-import 'package:bluetooth_thermal_printer/bluetooth_thermal_printer.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
@@ -53,39 +51,10 @@ class _ComprobanteFormState extends State<ComprobanteForm> {
   int get impuestos => (bruto * 0.19).toInt();
   int get total => bruto + impuestos;
 
-  Future<void> printTicket() async {
-    final isConnected = await BluetoothThermalPrinter.connectionStatus == true;
-    if (!isConnected) {
-      final devices = await BluetoothThermalPrinter.getBluetooths;
-      if (devices != null && devices.isNotEmpty) {
-        await BluetoothThermalPrinter.connect(devices[0]);
-      }
-    }
-
-    List<String> ticket = [];
-    ticket.add("DULCENET\\nALQUERIA, BOGOTA\\nTel: 33333333\\nNIT: 900207176\\n");
-    ticket.add("COMPROBANTE DE PEDIDO\\nFecha: $now\\n");
-    ticket.add("Cliente: $cliente\\nNegocio: $negocio\\nCiudad: $ciudad\\n");
-    ticket.add("Teléfono: $telefono\\n");
-    ticket.add("--------------------------------");
-    for (var p in productos) {
-      final t = p['u'] * p['p'];
-      ticket.add("\${p['codigo']} \${p['nombre']}\\n\${p['u']} x \$\${p['p']} = \$\${t}");
-    }
-    ticket.add("--------------------------------");
-    ticket.add("VALOR BRUTO: \$$bruto");
-    ticket.add("IMPUESTOS: \$$impuestos");
-    ticket.add("GRAN TOTAL: \$$total\\n");
-    ticket.add("Comentarios: $comentario");
-    ticket.add("--------------------------------");
-
-    await BluetoothThermalPrinter.writeBytes(ticket.join('\\n').codeUnits);
-  }
-
   Future<void> exportPDF() async {
     final pdf = pw.Document();
     final directory = await getApplicationDocumentsDirectory();
-    final file = File("\${directory.path}/comprobante_pedido.pdf");
+    final file = File("${directory.path}/comprobante_pedido.pdf");
 
     pdf.addPage(
       pw.Page(
@@ -105,7 +74,7 @@ class _ComprobanteFormState extends State<ComprobanteForm> {
               pw.Column(
                 children: productos.map((p) {
                   final t = p['u'] * p['p'];
-                  return pw.Text("\${p['codigo']} \${p['nombre']} - \${p['u']} x \$\${p['p']} = \$\${t}");
+                  return pw.Text("${p['codigo']} ${p['nombre']} - ${p['u']} x \$${p['p']} = \$${t}");
                 }).toList(),
               ),
               pw.SizedBox(height: 10),
@@ -121,6 +90,7 @@ class _ComprobanteFormState extends State<ComprobanteForm> {
     );
 
     await file.writeAsBytes(await pdf.save());
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('📄 PDF guardado en: ${file.path}')));
   }
 
   @override
@@ -149,12 +119,11 @@ class _ComprobanteFormState extends State<ComprobanteForm> {
               const Text("Productos agregados:", style: TextStyle(fontWeight: FontWeight.bold)),
               ...productos.map((p) => ListTile(
                 title: Text(p["nombre"]),
-                subtitle: Text("Unidades: \${p["u"]} - Precio: \$\${p["p"]}"),
-                trailing: Text("Total: \$\${p["u"] * p["p"]}"),
+                subtitle: Text("Unidades: ${p["u"]} - Precio: \$${p["p"]}"),
+                trailing: Text("Total: \$${p["u"] * p["p"]}"),
               )),
               TextFormField(decoration: const InputDecoration(labelText: "Comentario"), onChanged: (v) => comentario = v),
               const SizedBox(height: 10),
-              ElevatedButton(onPressed: printTicket, child: const Text("🖨️ Imprimir")),
               ElevatedButton(onPressed: exportPDF, child: const Text("📄 Generar PDF")),
             ],
           ),
